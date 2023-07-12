@@ -430,7 +430,7 @@ mod arith_impl {
 
         let z_1 = u128::from(x_0 * y_1) + u128::from(x_1 * y_0);
 
-        (u128::from(z_2) << 64) + (u128::from(z_1) << 32) + u128::from(z_0)
+        (u128::from(z_2) << 64) + (z_1 << 32) + u128::from(z_0)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
