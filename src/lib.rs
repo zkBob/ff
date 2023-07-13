@@ -414,6 +414,31 @@ fn test_bit_iterator_length() {
 pub use self::arith_impl::*;
 
 mod arith_impl {
+    #[cfg(target_arch = "wasm32")]
+    #[inline(always)]
+    pub fn mul_u64(x: u64, y: u64) -> u128 {
+        // x = x_1 * 2^32 + x_0
+        let x_0 = (x as u32) as u64;
+        let x_1 = x >> 32;
+
+        // y = y_1 * 2^32 + y_0
+        let y_0 = (y as u32) as u64;
+        let y_1 = y >> 32;
+
+        let z_0 = x_0 * y_0;
+        let z_2 = x_1 * y_1;
+
+        let z_1 = u128::from(x_0 * y_1) + u128::from(x_1 * y_0);
+
+        (u128::from(z_2) << 64) + (z_1 << 32) + u128::from(z_0)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[inline(always)]
+    pub fn mul_u64(x: u64, y: u64) -> u128 {
+        (x as u128) * (y as u128)
+    }
+
     /// Calculate a - b - borrow, returning the result and modifying
     /// the borrow value.
     #[inline(always)]
@@ -446,7 +471,7 @@ mod arith_impl {
     pub fn mac_with_carry(a: u64, b: u64, c: u64, carry: &mut u64) -> u64 {
         use std::num::Wrapping;
 
-        let tmp = (u128::from(a)).wrapping_add(u128::from(b).wrapping_mul(u128::from(c))).wrapping_add(u128::from(*carry));
+        let tmp = (u128::from(a)).wrapping_add(mul_u64(b, c)).wrapping_add(u128::from(*carry));
 
         *carry = (tmp >> 64) as u64;
 
@@ -455,28 +480,28 @@ mod arith_impl {
 
     #[inline(always)]
     pub fn full_width_mul(a: u64, b: u64) -> (u64, u64) {
-        let tmp = (a as u128) * (b as u128);
+        let tmp = mul_u64(a, b);
 
         return (tmp as u64, (tmp >> 64) as u64);
     }
 
     #[inline(always)]
     pub fn mac_by_value(a: u64, b: u64, c: u64) -> (u64, u64) {
-        let tmp = ((b as u128) * (c as u128)) + (a as u128);
+        let tmp = mul_u64(b, c) + (a as u128);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
 
     #[inline(always)]
     pub fn mac_by_value_return_carry_only(a: u64, b: u64, c: u64) -> u64 {
-        let tmp = ((b as u128) * (c as u128)) + (a as u128);
+        let tmp = mul_u64(b, c) + (a as u128);
 
         (tmp >> 64) as u64
     }
 
     #[inline(always)]
     pub fn mac_with_carry_by_value(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64) {
-        let tmp = ((b as u128) * (c as u128)) + (a as u128) + (carry as u128);
+        let tmp = mul_u64(b, c) + (a as u128) + (carry as u128);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
@@ -484,7 +509,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_by_value(a: u64, b: u64, c: u64) -> (u64, u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -500,7 +525,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_add_carry_by_value(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -516,7 +541,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_add_carry_by_value_ignore_superhi(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -531,7 +556,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_low_and_high_carry_by_value(b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -547,7 +572,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_low_and_high_carry_by_value_ignore_superhi(b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -562,7 +587,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_add_low_and_high_carry_by_value(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -578,7 +603,7 @@ mod arith_impl {
     #[inline(always)]
     pub fn mul_double_add_add_low_and_high_carry_by_value_ignore_superhi(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
         // multiply
-        let tmp = (b as u128) * (c as u128);
+        let tmp = mul_u64(b, c);
         // doulbe
         let lo = tmp as u64;
         let hi = (tmp >> 64) as u64;
@@ -592,7 +617,7 @@ mod arith_impl {
 
     #[inline(always)]
     pub fn mac_with_low_and_high_carry_by_value(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
-        let tmp = ((b as u128) * (c as u128)) + (a as u128) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+        let tmp = mul_u64(b, c) + (a as u128) + (lo_carry as u128) + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
